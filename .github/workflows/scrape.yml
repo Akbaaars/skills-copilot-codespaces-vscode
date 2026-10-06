@@ -1,0 +1,50 @@
+name: Scheduled Scrape
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run scraper
+        env:
+          LOGIN_URL: ${{ secrets.LOGIN_URL }}
+          TARGET_URL: ${{ secrets.TARGET_URL }}
+          SITE_USERNAME: ${{ secrets.SITE_USERNAME }}
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          USERNAME_SELECTOR: ${{ secrets.USERNAME_SELECTOR }}
+          PASSWORD_SELECTOR: ${{ secrets.PASSWORD_SELECTOR }}
+          LOGIN_SUBMIT_SELECTOR: ${{ secrets.LOGIN_SUBMIT_SELECTOR }}
+          LOGIN_SUCCESS_SELECTOR: ${{ secrets.LOGIN_SUCCESS_SELECTOR }}
+          LOGIN_SUCCESS_URL_CONTAINS: ${{ secrets.LOGIN_SUCCESS_URL_CONTAINS }}
+          DATA_ITEM_SELECTOR: ${{ secrets.DATA_ITEM_SELECTOR }}
+          ITEM_TEXT_SELECTOR: ${{ secrets.ITEM_TEXT_SELECTOR }}
+          PAGINATION_NEXT_SELECTOR: ${{ secrets.PAGINATION_NEXT_SELECTOR }}
+          OUTPUT_FORMAT: both
+          OUTPUT_BASENAME: output/scrape-data
+        run: npm run scrape
+
+      - name: Upload scraping output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-output
+          path: output/
