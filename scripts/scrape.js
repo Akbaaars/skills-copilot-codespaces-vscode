@@ -2,6 +2,28 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { chromium } = require("playwright");
 
+async function loadEnvFile(envFilePath = ".env") {
+  try {
+    const raw = await fs.readFile(envFilePath, "utf8");
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const equalIndex = trimmed.indexOf("=");
+      if (equalIndex <= 0) continue;
+      const key = trimmed.slice(0, equalIndex).trim();
+      const value = trimmed.slice(equalIndex + 1).trim().replace(/^['"]|['"]$/g, "");
+      if (!process.env[key]) {
+        process.env[key] = value;
+      }
+    }
+    console.log(`[info] loaded env file: ${envFilePath}`);
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+}
+
 function getEnv(name, fallback = "") {
   return (process.env[name] || fallback).trim();
 }
@@ -113,6 +135,8 @@ async function paginateAndCollect(page, config) {
 }
 
 async function main() {
+  await loadEnvFile(getEnv("ENV_FILE", ".env"));
+
   const config = {
     loginUrl: getEnv("LOGIN_URL"),
     targetUrl: getEnv("TARGET_URL"),
@@ -137,6 +161,10 @@ async function main() {
     outputBasename: getEnv("OUTPUT_BASENAME", "output/scrape-data"),
     headless: !parseBoolean(getEnv("SHOW_BROWSER"), false),
   };
+
+  if (!["json", "csv", "both"].includes(config.outputFormat)) {
+    throw new Error("OUTPUT_FORMAT must be one of: json, csv, both");
+  }
 
   const required = [
     ["LOGIN_URL", config.loginUrl],
